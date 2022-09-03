@@ -1,0 +1,129 @@
+class BufferReader {
+	public index: usize
+	public buffer: [u8]
+	
+	public function next_byte(mut this) -> u8 {
+		let result: u8 = .buffer[.index]
+		.index++
+		return result
+	}
+
+	public function peek_byte(this) -> u8 {
+		return .buffer[.index]
+	}
+
+	public function next_integer_of_size(mut this, integer_size: usize) -> usize {
+		mut final_integer: usize = 0
+
+		for integer_byte in 0 .. integer_size {
+			final_integer |= (.next_byte() << (integer_byte * 8)) as! usize
+		}
+
+		return final_integer
+	}
+}
+
+class LuaChunk {
+	public source_name: String
+	public source_line_start: usize
+	public source_line_end: usize
+	public number_of_upvalues: u8
+	public number_of_parameters: u8
+	public is_vararg: u8
+	public max_stack_size: u8
+}
+
+class LuaHeader {
+	public version: u8
+	public format: u8
+	public endianness: u8
+	public size_int: u8
+	public size_size_t: u8
+	public instruction_size: u8
+	public lua_number_size: u8
+	public number_type: u8
+}
+
+class LuaFile {
+	public header: LuaHeader
+	public main_chunk: LuaChunk
+}
+
+enum FileLoadResult {
+	Success(LuaFile)
+	NotALuaFile
+}
+
+function load_lua_string(mut buffer: BufferReader, header: LuaHeader) throws -> String {
+	mut string_length: usize = buffer.next_integer_of_size(integer_size: header.size_size_t as! usize)
+	mut string_builder: StringBuilder = StringBuilder::create()
+
+	// String length - 1 so that he null byte at the end isn't included
+	for string_index in 0 .. string_length - 1 {
+		string_builder.append(buffer.next_byte())
+	}
+
+	// Skip null byte
+	buffer.next_byte()
+
+	return string_builder.to_string()
+}
+
+function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> LuaChunk {
+	let source_name = load_lua_string(buffer, header)
+	let source_line_start = buffer.next_integer_of_size(integer_size: header.size_int as! usize)
+	let source_line_end = buffer.next_integer_of_size(integer_size: header.size_int as! usize)
+	let number_of_upvalues = buffer.next_byte()
+	let number_of_parameters = buffer.next_byte()
+	let is_vararg = buffer.next_byte()
+	let max_stack_size = buffer.next_byte()
+	
+	return LuaChunk(source_name, source_line_start, source_line_end, number_of_upvalues, number_of_parameters, is_vararg, max_stack_size)
+}
+
+// TODO: Load Lua script files rather than just bytecode files
+function load_file(filename: String) throws -> FileLoadResult {
+	mut file = File::open_for_reading(filename)
+
+	// TODO: Stream file?
+	let buffer = file.read_all()
+
+	// Ensure valid Lua file
+	guard buffer.size() > 12 and buffer[0] == 0x1b and buffer[1] == b'L' and buffer[2] == b'u' and buffer[3] == b'a' else {
+		return FileLoadResult::NotALuaFile
+	}
+
+	// Parse out header
+	let version = buffer[4]
+	let format = buffer[5]
+	let endianness = buffer[6]
+	let size_int = buffer[7]
+	let size_size_t = buffer[8]
+	let instruction_size = buffer[9]
+	let lua_number_size = buffer[10]
+	let number_type = buffer[11]
+
+	let header = LuaHeader(version, format, endianness, size_int, size_size_t, instruction_size, lua_number_size, number_type)
+	let buffer_reader = BufferReader(index: 12, buffer)
+	let main_chunk = load_lua_chunk(buffer: buffer_reader, header)
+
+	return FileLoadResult::Success(LuaFile(header, main_chunk))
+}
+
+function main(args: [String]) {
+	guard args.size() > 1 else {
+		eprintln("usage: luja <bytecode file>")
+		return 1
+	}
+
+	let filename = args[1]
+	let lua_file = load_file(filename)
+	println(filename)
+
+	guard lua_file is Success(raw_lua_file) else {
+		eprintln("File is not a Lua bytecode file")
+		return 2
+	}
+
+	println("{}, {}, {}", raw_lua_file.main_chunk.source_name, raw_lua_file.main_chunk.source_line_start, raw_lua_file.main_chunk.source_line_end)
+}
