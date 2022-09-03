@@ -1,5 +1,5 @@
 import BufferReader { BufferReader }
-import LuaTypes { LuaConstant, LuaLocal, LuaInstruction, LuaHeader, LuaChunk }
+import LuaTypes { LuaEnvironment, LuaScope, LuaConstant, LuaLocal, LuaInstruction, LuaHeader, LuaChunk }
 
 class LuaFile {
 	public header: LuaHeader
@@ -208,7 +208,6 @@ function main(args: [String]) {
 
 	let filename = args[1]
 	let lua_file = load_file(filename)
-	println(filename)
 
 	guard lua_file is Success(raw_lua_file) else {
 		eprintln("File is not a Lua bytecode file")
@@ -216,4 +215,11 @@ function main(args: [String]) {
 	}
 
 	println("{}, {}, {}", raw_lua_file.main_chunk.source_name, raw_lua_file.main_chunk.source_line_start, raw_lua_file.main_chunk.source_line_end)
+
+	let environment = LuaEnvironment()
+	mut top_level_function = LuaScope::construct(environment, prototype: raw_lua_file.main_chunk, arguments: [])
+	
+	for instruction_index in 0 .. raw_lua_file.main_chunk.instruction_list.size() {
+		top_level_function.run_instruction(instruction_index)
+	}
 }
