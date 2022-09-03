@@ -12,6 +12,7 @@ On Windows:
 ```
 > jakt src\main.jakt -I <path to Jakt runtime> -o luja.exe
 ```
+At the time of writing this, there is a compiler bug in Jakt that may require you to pass `-I .\src` to the compiler on Windows.
 
 ## Etc...
 Luja cannot read Lua scripts directly and probably won't for a little while. I plan to implement this eventually. I have never written a Lua parser before, but I hope that this can be my first time.
