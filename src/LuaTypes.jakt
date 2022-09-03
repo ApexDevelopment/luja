@@ -11,6 +11,15 @@ class LuaLocal {
 	public scope_end: usize
 }
 
+class LuaInstruction {
+	public opcode: u8
+	public A: u32
+	public B: u32
+	public C: u32
+	public Bx: u32
+	public sBx: i32
+}
+
 class LuaChunk {
 	public source_name: String
 	public source_line_start: usize
@@ -19,7 +28,7 @@ class LuaChunk {
 	public number_of_parameters: u8
 	public is_vararg: u8
 	public max_stack_size: u8
-	public instruction_list: [u32]
+	public instruction_list: [LuaInstruction]
 	public constant_list: [LuaConstant]
 	public prototype_list: [LuaChunk]
 	public source_line_list: [usize]

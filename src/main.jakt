@@ -1,5 +1,5 @@
 import BufferReader { BufferReader }
-import LuaTypes { LuaConstant, LuaLocal, LuaHeader, LuaChunk }
+import LuaTypes { LuaConstant, LuaLocal, LuaInstruction, LuaHeader, LuaChunk }
 
 class LuaFile {
 	public header: LuaHeader
@@ -11,11 +11,25 @@ enum FileLoadResult {
 	NotALuaFile
 }
 
+function load_lua_instruction(mut buffer: BufferReader) throws -> LuaInstruction {
+	let raw_instruction = buffer.next_u32()
+	let opcode: u8 = raw_instruction & 0b111111
+	let A: u32 = (raw_instruction >> 6) & 0xF
+	let C: u32 = (raw_instruction >> 14) & 0xF
+	let B: u32 = (raw_instruction >> 23) & 0x1F
+	let Bx: u32 = C | (B << 9)
+	let sBx: i32 = (Bx as! i32) - 131071
+
+	// println("Instruction op:{} A:{} B:{} C:{} Bx:{} sBx:{}", opcode, A, B, C, Bx, sBx)
+
+	return LuaInstruction(opcode, A, B, C, Bx, sBx)
+}
+
 function load_lua_string(mut buffer: BufferReader, header: LuaHeader) throws -> String {
-	mut string_length: usize = buffer.next_integer_of_size(integer_size: header.size_size_t as! usize)
+	let string_length = buffer.next_integer_of_size(integer_size: header.size_size_t as! usize)
 	mut string_builder: StringBuilder = StringBuilder::create()
 
-	// String length - 1 so that he null byte at the end isn't included
+	// String length - 1 so that the null byte at the end isn't included
 	for string_index in 0 .. string_length - 1 {
 		string_builder.append(buffer.next_byte())
 	}
@@ -66,13 +80,12 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 	let is_vararg = buffer.next_byte()
 	let max_stack_size = buffer.next_byte()
 	let size_code = buffer.next_integer_of_size(integer_size: header.size_int)
-	mut instruction_list: [u32] = []
+	mut instruction_list: [LuaInstruction] = []
 	instruction_list.ensure_capacity(size_code)
 	println("We have {} instructions", size_code)
 
 	for code_index in 0 .. size_code {
-		let raw_instruction = buffer.next_integer_of_size(integer_size: header.size_instruction)
-		instruction_list.push(raw_instruction as! u32)
+		instruction_list.push(load_lua_instruction(buffer))
 	}
 
 	let size_constants = buffer.next_integer_of_size(integer_size: header.size_int)
@@ -137,6 +150,18 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 		let upvalue_name = load_lua_string(buffer, header)
 	}
 
+	// debug info
+	// for instruction_position in 0 .. size_code {
+	// 	let instruction = instruction_list[instruction_position]
+	// 	print("[{}] op:{} A:{} B:{} C:{} Bx:{} sBx:{}", instruction_position, instruction.opcode, instruction.A, instruction.B, instruction.C, instruction.Bx, instruction.sBx)
+
+	// 	if (instruction.opcode == 1) {
+	// 		print(" LOADK {} to slot {}", constant_list[instruction.Bx], instruction.A)
+	// 	}
+		
+	// 	println()
+	// }
+
 	return LuaChunk(source_name, source_line_start, source_line_end, number_of_upvalues,
 		number_of_parameters, is_vararg, max_stack_size, instruction_list, constant_list,
 		prototype_list, source_line_list, local_list, upvalue_list)
@@ -172,6 +197,8 @@ function load_file(filename: String) throws -> FileLoadResult {
 
 	return FileLoadResult::Success(LuaFile(header, main_chunk))
 }
+
+//function run_instruction(instruction: LuaInstruction)
 
 function main(args: [String]) {
 	guard args.size() > 1 else {
