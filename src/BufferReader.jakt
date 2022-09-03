@@ -1,0 +1,24 @@
+class BufferReader {
+	public index: usize
+	public buffer: [u8]
+	
+	public function next_byte(mut this) -> u8 {
+		let result: u8 = .buffer[.index]
+		.index++
+		return result
+	}
+
+	public function peek_byte(this) -> u8 {
+		return .buffer[.index]
+	}
+
+	public function next_integer_of_size(mut this, integer_size: usize) -> usize {
+		mut final_integer: usize = 0
+
+		for integer_byte in 0 .. integer_size {
+			final_integer |= (.next_byte() << (integer_byte * 8)) as! usize
+		}
+
+		return final_integer
+	}
+}

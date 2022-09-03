@@ -1,67 +1,5 @@
-class BufferReader {
-	public index: usize
-	public buffer: [u8]
-	
-	public function next_byte(mut this) -> u8 {
-		let result: u8 = .buffer[.index]
-		.index++
-		return result
-	}
-
-	public function peek_byte(this) -> u8 {
-		return .buffer[.index]
-	}
-
-	public function next_integer_of_size(mut this, integer_size: usize) -> usize {
-		mut final_integer: usize = 0
-
-		for integer_byte in 0 .. integer_size {
-			final_integer |= (.next_byte() << (integer_byte * 8)) as! usize
-		}
-
-		return final_integer
-	}
-}
-
-enum LuaConstant {
-	Nil
-	Boolean(value: bool)
-	Number(value: f64)
-	LString(value: String)
-}
-
-class LuaLocal {
-	public name: String
-	public scope_start: usize
-	public scope_end: usize
-}
-
-class LuaChunk {
-	public source_name: String
-	public source_line_start: usize
-	public source_line_end: usize
-	public number_of_upvalues: u8
-	public number_of_parameters: u8
-	public is_vararg: u8
-	public max_stack_size: u8
-	public instruction_list: [u32]
-	public constant_list: [LuaConstant]
-	public prototype_list: [LuaChunk]
-	public source_line_list: [usize]
-	public local_list: [LuaLocal]
-	public upvalue_list: [String]
-}
-
-class LuaHeader {
-	public version: u8
-	public format: u8
-	public endianness: u8
-	public size_int: usize
-	public size_size_t: usize
-	public size_instruction: usize
-	public size_lua_number: usize
-	public number_type: u8
-}
+import BufferReader { BufferReader }
+import LuaTypes { LuaConstant, LuaLocal, LuaHeader, LuaChunk }
 
 class LuaFile {
 	public header: LuaHeader
@@ -105,8 +43,8 @@ function load_lua_number(mut buffer: BufferReader, header: LuaHeader) -> LuaCons
 		cpp {
 			"
 			union FloatConverter {
-				unsigned long long int as_u64;
-				double as_f64;
+				u64 as_u64;
+				f64 as_f64;
 			};
 			
 			FloatConverter fc = {};
@@ -153,7 +91,7 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 			else => LuaConstant::Nil
 		}
 
-		println("Constant {} is type {}: {}", const_index, constant_type, constant)
+		println("Constant {} is {}", const_index, constant)
 		constant_list.push(constant)
 	}
 

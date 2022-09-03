@@ -1,0 +1,39 @@
+enum LuaConstant {
+	Nil
+	Boolean(value: bool)
+	Number(value: f64)
+	LString(value: String)
+}
+
+class LuaLocal {
+	public name: String
+	public scope_start: usize
+	public scope_end: usize
+}
+
+class LuaChunk {
+	public source_name: String
+	public source_line_start: usize
+	public source_line_end: usize
+	public number_of_upvalues: u8
+	public number_of_parameters: u8
+	public is_vararg: u8
+	public max_stack_size: u8
+	public instruction_list: [u32]
+	public constant_list: [LuaConstant]
+	public prototype_list: [LuaChunk]
+	public source_line_list: [usize]
+	public local_list: [LuaLocal]
+	public upvalue_list: [String]
+}
+
+class LuaHeader {
+	public version: u8
+	public format: u8
+	public endianness: u8
+	public size_int: usize
+	public size_size_t: usize
+	public size_instruction: usize
+	public size_lua_number: usize
+	public number_type: u8
+}
