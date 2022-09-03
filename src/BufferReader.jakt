@@ -12,6 +12,15 @@ class BufferReader {
 		return .buffer[.index]
 	}
 
+	public function next_u32(mut this) -> u32 {
+		let byte1 = .next_byte() as! u32
+		let byte2 = .next_byte() as! u32
+		let byte3 = .next_byte() as! u32
+		let byte4 = .next_byte() as! u32
+
+		return byte1 | (byte2 << 8) | (byte3 << 16) | (byte4 << 24)
+	}
+
 	public function next_integer_of_size(mut this, integer_size: usize) -> usize {
 		mut final_integer: usize = 0
 
