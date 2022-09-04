@@ -68,7 +68,6 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 	let size_code = buffer.next_integer_of_size(integer_size: header.size_int)
 	mut instruction_list: [LuaInstruction] = []
 	instruction_list.ensure_capacity(size_code)
-	println("We have {} instructions", size_code)
 
 	for code_index in 0 .. size_code {
 		instruction_list.push(LuaInstruction::from_u32(buffer.next_u32()))
@@ -77,7 +76,6 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 	let size_constants = buffer.next_integer_of_size(integer_size: header.size_int)
 	mut constant_list: [LuaConstant] = []
 	constant_list.ensure_capacity(size_constants)
-	println("We have {} constants", size_constants)
 
 	for const_index in 0 .. size_constants {
 		let constant_type = buffer.next_byte()
@@ -90,14 +88,13 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 			else => LuaConstant::Nil
 		}
 
-		println("Constant {} is {}", const_index, constant)
+		//println("Constant {} is {}", const_index, constant)
 		constant_list.push(constant)
 	}
 
 	let size_prototypes = buffer.next_integer_of_size(integer_size: header.size_int)
 	mut prototype_list: [LuaChunk] = []
 	prototype_list.ensure_capacity(size_prototypes)
-	println("We have {} function protos", size_prototypes)
 
 	for prototype_index in 0 .. size_prototypes {
 		let prototype = load_lua_chunk(buffer, header)
@@ -107,7 +104,6 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 	let size_line_info = buffer.next_integer_of_size(integer_size: header.size_int)
 	mut source_line_list: [usize] = []
 	source_line_list.ensure_capacity(size_line_info)
-	println("We have {} line positions", size_line_info)
 
 	for instruction_position in 0 .. size_line_info {
 		let line_number = buffer.next_integer_of_size(integer_size: header.size_int)
@@ -117,11 +113,10 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 	let size_locals = buffer.next_integer_of_size(integer_size: header.size_int)
 	mut local_list: [LuaLocal] = []
 	local_list.ensure_capacity(size_locals)
-	println("We have {} local variable names", size_locals)
 
 	for locals_index in 0 .. size_locals {
 		let local_name = load_lua_string(buffer, header)
-		println("Local variable {} is called {}", locals_index, local_name)
+		//println("Local variable {} is called {}", locals_index, local_name)
 		let scope_start = buffer.next_integer_of_size(integer_size: header.size_int)
 		let scope_end = buffer.next_integer_of_size(integer_size: header.size_int)
 		local_list.push(LuaLocal(name: local_name, scope_start, scope_end))
@@ -130,7 +125,6 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 	let size_upvalues = buffer.next_integer_of_size(integer_size: header.size_int)
 	mut upvalue_list: [String] = []
 	upvalue_list.ensure_capacity(size_upvalues)
-	println("We have {} upvalue names", size_prototypes)
 
 	for upvalues_index in 0 .. size_upvalues {
 		let upvalue_name = load_lua_string(buffer, header)
@@ -175,8 +169,6 @@ function load_file(filename: String) throws -> FileLoadResult {
 	let size_lua_number = buffer[10] as! usize
 	let number_type = buffer[11]
 
-	println("Lua number size: {}", size_lua_number)
-
 	let header = LuaHeader(version, format, endianness, size_int, size_size_t, size_instruction, size_lua_number, number_type)
 	let buffer_reader = BufferReader(index: 12, buffer)
 	let main_chunk = load_lua_chunk(buffer: buffer_reader, header)
@@ -198,7 +190,7 @@ function main(args: [String]) {
 		return 2
 	}
 
-	println("{}, {}, {}", raw_lua_file.main_chunk.source_name, raw_lua_file.main_chunk.source_line_start, raw_lua_file.main_chunk.source_line_end)
+	println("Loaded {}.", raw_lua_file.main_chunk.source_name)
 
 	let environment = LuaEnvironment()
 	mut top_level_function = LuaScope::construct(environment, prototype: raw_lua_file.main_chunk, arguments: [])
