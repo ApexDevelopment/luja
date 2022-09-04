@@ -8,10 +8,6 @@ class BufferReader {
 		return result
 	}
 
-	public function peek_byte(this) -> u8 {
-		return .buffer[.index]
-	}
-
 	public function next_u32(mut this) -> u32 {
 		let byte1 = .next_byte() as! u32
 		let byte2 = .next_byte() as! u32
