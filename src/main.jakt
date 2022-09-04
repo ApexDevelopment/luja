@@ -11,20 +11,6 @@ enum FileLoadResult {
 	NotALuaFile
 }
 
-function load_lua_instruction(mut buffer: BufferReader) throws -> LuaInstruction {
-	let raw_instruction = buffer.next_u32()
-	let opcode: u8 = raw_instruction & 0b111111
-	let A: u32 = (raw_instruction >> 6) & 0xF
-	let C: u32 = (raw_instruction >> 14) & 0xF
-	let B: u32 = (raw_instruction >> 23) & 0x1F
-	let Bx: u32 = C | (B << 9)
-	let sBx: i32 = (Bx as! i32) - 131071
-
-	// println("Instruction op:{} A:{} B:{} C:{} Bx:{} sBx:{}", opcode, A, B, C, Bx, sBx)
-
-	return LuaInstruction(opcode, A, B, C, Bx, sBx)
-}
-
 function load_lua_string(mut buffer: BufferReader, header: LuaHeader) throws -> String {
 	let string_length = buffer.next_integer_of_size(integer_size: header.size_size_t as! usize)
 	mut string_builder: StringBuilder = StringBuilder::create()
@@ -85,7 +71,7 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 	println("We have {} instructions", size_code)
 
 	for code_index in 0 .. size_code {
-		instruction_list.push(load_lua_instruction(buffer))
+		instruction_list.push(LuaInstruction::from_u32(buffer.next_u32()))
 	}
 
 	let size_constants = buffer.next_integer_of_size(integer_size: header.size_int)
@@ -197,8 +183,6 @@ function load_file(filename: String) throws -> FileLoadResult {
 
 	return FileLoadResult::Success(LuaFile(header, main_chunk))
 }
-
-//function run_instruction(instruction: LuaInstruction)
 
 function main(args: [String]) {
 	guard args.size() > 1 else {

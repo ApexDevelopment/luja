@@ -6,9 +6,9 @@ enum LuaConstant {
 }
 
 enum LuaValue {
-	Constant(constant: LuaConstant)
-	LuaFunction(lfunction: LuaScope)
-	NonLuaFunction(function_name: String)
+	Constant(LuaConstant)
+	LuaFunction(LuaScope)
+	NonLuaFunction(String)
 	Table(table_id: u64)
 }
 
@@ -25,6 +25,17 @@ class LuaInstruction {
 	public C: u32
 	public Bx: u32
 	public sBx: i32
+
+	public function from_u32(anon raw_instruction: u32) throws -> LuaInstruction {
+		let opcode: u8 = raw_instruction & 0b111111
+		let A: u32 = (raw_instruction >> 6) & 0xF
+		let C: u32 = (raw_instruction >> 14) & 0xF
+		let B: u32 = (raw_instruction >> 23) & 0x1F
+		let Bx: u32 = C | (B << 9)
+		let sBx: i32 = (Bx as! i32) - 131071
+
+		return LuaInstruction(opcode, A, B, C, Bx, sBx)
+	}
 }
 
 class LuaChunk {
@@ -57,16 +68,18 @@ class LuaHeader {
 class LuaEnvironment {
 	public function get_global(this, global: LuaValue) -> LuaValue {
 		guard global is Constant(constant) else {
-			return LuaValue::Constant(constant: LuaConstant::Nil)
+			return LuaValue::Constant(LuaConstant::Nil)
 		}
 
 		guard constant is LString(value) else {
-			return LuaValue::Constant(constant: LuaConstant::Nil)
+			return LuaValue::Constant(LuaConstant::Nil)
 		}
 
 		if value == "print" {
-			return LuaValue::NonLuaFunction(function_name: value)
+			return LuaValue::NonLuaFunction(value)
 		}
+
+		return LuaValue::Constant(LuaConstant::Nil)
 	}
 }
 
