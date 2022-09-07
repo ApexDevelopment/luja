@@ -1,0 +1,160 @@
+import luatypes { LuaConstant, LuaValue, LuaChunk }
+
+function print_lua_values(values: [LuaValue]) throws {
+	mut string_builder: StringBuilder = StringBuilder::create()
+
+	for value_index in 0 .. values.size() {
+		let lua_value = values[value_index]
+
+		match lua_value {
+			Constant(constant) => {
+				match constant {
+					Nil => {
+						string_builder.append_string("nil")
+					}
+					Boolean(value) => {
+						if value {
+							string_builder.append_string("true")
+						}
+						else {
+							string_builder.append_string("false")
+						}
+					}
+					Number(value) => {
+						string_builder.append_string(format("{}", value))
+					}
+					LString(value) => {
+						string_builder.append_string(value)
+					}
+				}
+			}
+			else => {}
+		}
+
+		string_builder.append(b'\t')
+	}
+
+	println(string_builder.to_string())
+}
+
+class LuaEnvironment {
+	public function get_global(this, global: LuaValue) -> LuaValue {
+		guard global is Constant(constant) else {
+			return LuaValue::Constant(LuaConstant::Nil)
+		}
+
+		guard constant is LString(value) else {
+			return LuaValue::Constant(LuaConstant::Nil)
+		}
+
+		if value == "print" {
+			return LuaValue::NonLuaFunction(value)
+		}
+
+		return LuaValue::Constant(LuaConstant::Nil)
+	}
+}
+
+enum LuaInstructionResult {
+	VMError
+	Error
+	Continue
+	Return
+}
+
+class LuaScope {
+	public environment: LuaEnvironment
+	public prototype: LuaChunk
+	public registers: [LuaValue]
+	public pc: usize
+
+	public function construct(environment: LuaEnvironment, prototype: LuaChunk, arguments: [LuaValue]) throws -> LuaScope {
+		mut registers: [LuaValue] = [LuaValue::Constant(constant: LuaConstant::Nil); prototype.max_stack_size]
+
+		for argument_index in 0 .. arguments.size() {
+			registers.push(arguments[argument_index])
+		}
+
+		return LuaScope(environment, prototype, registers, pc: 0)
+	}
+
+	public function run_instruction(mut this, instruction_index: usize) throws -> LuaInstructionResult {
+		guard instruction_index < .prototype.instruction_list.size() else {
+			eprintln("Instruction {} does not exist", instruction_index)
+			return LuaInstructionResult::VMError()
+		}
+
+		let instruction = .prototype.instruction_list[instruction_index]
+
+		let result: LuaInstructionResult = match instruction.opcode {
+			0 => { // MOVE
+				.registers[instruction.A] = .registers[instruction.B]
+				yield LuaInstructionResult::Continue()
+			}
+			1 => { // LOADK
+				.registers[instruction.A] = LuaValue::Constant(constant: .prototype.constant_list[instruction.Bx])
+				yield LuaInstructionResult::Continue()
+			}
+			2 => { // LOADBOOL
+				.registers[instruction.A] = LuaValue::Constant(constant: LuaConstant::Boolean(value: instruction.B != 0))
+
+				if (instruction.C != 0) { .pc++ }
+				yield LuaInstructionResult::Continue()
+			}
+			3 => { // LOADNIL
+				for register_index in instruction.A .. instruction.B {
+					.registers[register_index] = LuaValue::Constant(constant: LuaConstant::Nil)
+				}
+
+				yield LuaInstructionResult::Continue()
+			}
+			4 => {
+				// TODO: GETUPVAL
+				yield LuaInstructionResult::Continue()
+			}
+			5 => { // GETGLOBAL
+				let global = LuaValue::Constant(constant: .prototype.constant_list[instruction.Bx])
+				.registers[instruction.A] = .environment.get_global(global)
+				yield LuaInstructionResult::Continue()
+			}
+			6 => {
+				// TODO: SETUPVAL
+				yield LuaInstructionResult::Continue()
+			}
+			28 => { // CALL
+				let function_to_call = .registers[instruction.A]
+
+				guard function_to_call is NonLuaFunction(function_name) else {
+					eprintln("TODO: Call lua funcs")
+					throw Error::from_errno(1)
+				}
+
+				if function_name == "print" {
+					print_lua_values(values: .registers[(instruction.A + 1) .. (instruction.A + instruction.B)].to_array())
+				}
+				
+				yield LuaInstructionResult::Continue()
+			}
+			else => {
+				eprintln("Unknown opcode {} at instruction {}", instruction.opcode, instruction_index)
+				
+				yield LuaInstructionResult::VMError()
+			}
+		}
+
+		return result
+	}
+
+	public function run_to_completion(mut this) throws {
+		mut result = LuaInstructionResult::Continue()
+
+		while .pc < .prototype.instruction_list.size() and result is Continue {
+			result = .run_instruction(instruction_index: .pc)
+			.pc++
+		}
+
+		if result is VMError {
+			eprintln("Function encountered an error")
+		}
+	}
+}

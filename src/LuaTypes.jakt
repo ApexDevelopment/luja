@@ -7,9 +7,21 @@ enum LuaConstant {
 
 enum LuaValue {
 	Constant(LuaConstant)
-	LuaFunction(LuaScope)
+	LuaFunction(id: u64)
 	NonLuaFunction(String)
-	Table(table_id: u64)
+	Table(id: u64)
+
+	// public function convert_to_bool(anon value: LuaValue) -> LuaValue {
+	// 	//
+	// }
+
+	// public function convert_to_string(anon value: LuaValue) -> LuaValue {
+	// 	//
+	// }
+
+	// public function convert_to_number(anon value: LuaValue) -> LuaValue {
+	// 	//
+	// }
 }
 
 class LuaLocal {
@@ -63,129 +75,4 @@ class LuaHeader {
 	public size_instruction: usize
 	public size_lua_number: usize
 	public number_type: u8
-}
-
-class LuaEnvironment {
-	public function get_global(this, global: LuaValue) -> LuaValue {
-		guard global is Constant(constant) else {
-			return LuaValue::Constant(LuaConstant::Nil)
-		}
-
-		guard constant is LString(value) else {
-			return LuaValue::Constant(LuaConstant::Nil)
-		}
-
-		if value == "print" {
-			return LuaValue::NonLuaFunction(value)
-		}
-
-		return LuaValue::Constant(LuaConstant::Nil)
-	}
-}
-
-function print_lua_values(values: [LuaValue]) throws {
-	mut string_builder: StringBuilder = StringBuilder::create()
-
-	for value_index in 0 .. values.size() {
-		let lua_value = values[value_index]
-
-		match lua_value {
-			Constant(constant) => {
-				match constant {
-					Nil => {
-						string_builder.append_string("nil")
-					}
-					Boolean(value) => {
-						if value {
-							string_builder.append_string("true")
-						}
-						else {
-							string_builder.append_string("false")
-						}
-					}
-					Number(value) => {
-						string_builder.append_string(format("{}", value))
-					}
-					LString(value) => {
-						string_builder.append_string(value)
-					}
-				}
-			}
-			else => {}
-		}
-
-		string_builder.append(b'\t')
-	}
-
-	println(string_builder.to_string())
-}
-
-class LuaScope {
-	public environment: LuaEnvironment
-	public prototype: LuaChunk
-	public registers: [LuaValue]
-	public pc: usize
-
-	public function construct(environment: LuaEnvironment, prototype: LuaChunk, arguments: [LuaValue]) throws -> LuaScope {
-		mut registers: [LuaValue] = [LuaValue::Constant(constant: LuaConstant::Nil); prototype.max_stack_size]
-
-		for argument_index in 0 .. arguments.size() {
-			registers.push(arguments[argument_index])
-		}
-
-		return LuaScope(environment, prototype, registers, pc: 0)
-	}
-
-	public function run_instruction(mut this, instruction_index: usize) throws {
-		guard instruction_index < .prototype.instruction_list.size() else {
-			eprintln("Instruction {} does not exist", instruction_index)
-			return
-		}
-
-		let instruction = .prototype.instruction_list[instruction_index]
-
-		match instruction.opcode {
-			0 => { // MOVE
-				.registers[instruction.A] = .registers[instruction.B]
-			}
-			1 => { // LOADK
-				.registers[instruction.A] = LuaValue::Constant(constant: .prototype.constant_list[instruction.Bx])
-			}
-			2 => { // LOADBOOL
-				.registers[instruction.A] = LuaValue::Constant(constant: LuaConstant::Boolean(value: instruction.B != 0))
-
-				if (instruction.C != 0) { .pc++ }
-			}
-			3 => { // LOADNIL
-				for register_index in instruction.A .. instruction.B {
-					.registers[register_index] = LuaValue::Constant(constant: LuaConstant::Nil)
-				}
-			}
-			4 => {
-				// TODO: GETUPVAL
-			}
-			5 => { // GETGLOBAL
-				let global = LuaValue::Constant(constant: .prototype.constant_list[instruction.Bx])
-				.registers[instruction.A] = .environment.get_global(global)
-			}
-			6 => {
-				// TODO: SETUPVAL
-			}
-			28 => { // CALL
-				let function_to_call = .registers[instruction.A]
-
-				guard function_to_call is NonLuaFunction(function_name) else {
-					eprintln("TODO: Call lua funcs")
-					throw Error::from_errno(1)
-				}
-
-				if function_name == "print" {
-					print_lua_values(values: .registers[(instruction.A + 1) .. (instruction.A + instruction.B)].to_array())
-				}
-			}
-			else => {
-				eprintln("Unknown opcode {} at instruction {}", instruction.opcode, instruction_index)
-			}
-		}
-	}
 }

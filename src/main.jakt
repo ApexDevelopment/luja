@@ -1,5 +1,6 @@
-import BufferReader { BufferReader }
-import LuaTypes { LuaEnvironment, LuaScope, LuaConstant, LuaLocal, LuaInstruction, LuaHeader, LuaChunk }
+import bufferreader { BufferReader }
+import luatypes { LuaConstant, LuaLocal, LuaInstruction, LuaHeader, LuaChunk }
+import vm { LuaEnvironment, LuaScope}
 
 class LuaFile {
 	public header: LuaHeader
@@ -27,7 +28,7 @@ function load_lua_string(mut buffer: BufferReader, header: LuaHeader) throws -> 
 }
 
 function load_lua_number(mut buffer: BufferReader, header: LuaHeader) -> LuaConstant {
-	// TODO: Implement more Lua number types (support for integers, doubles, etc)
+	// TODO: Implement more Lua number types (support for integers, single-precision floats, etc)
 	let byte1 = (buffer.next_byte() as! u64)
 	let byte2 = (buffer.next_byte() as! u64) << 8
 	let byte3 = (buffer.next_byte() as! u64) << 16
@@ -195,7 +196,5 @@ function main(args: [String]) {
 	let environment = LuaEnvironment()
 	mut top_level_function = LuaScope::construct(environment, prototype: raw_lua_file.main_chunk, arguments: [])
 	
-	for instruction_index in 0 .. raw_lua_file.main_chunk.instruction_list.size() {
-		top_level_function.run_instruction(instruction_index)
-	}
+	top_level_function.run_to_completion()
 }
