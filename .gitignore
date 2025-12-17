@@ -1,4 +1,4 @@
 build
-build/*
+exports
 test.lua
 luac.out
