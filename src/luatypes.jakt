@@ -38,8 +38,8 @@ class LuaInstruction {
 	public Bx: u32
 	public sBx: i32
 
-	public function from_u32(anon raw_instruction: u32) throws -> LuaInstruction {
-		let opcode: u8 = raw_instruction & 0b111111
+	public fn from_u32(anon raw_instruction: u32) throws -> LuaInstruction {
+		let opcode: u8 = (raw_instruction & 0b111111) as! u8
 		let A: u32 = (raw_instruction >> 6) & 0xF
 		let C: u32 = (raw_instruction >> 14) & 0xF
 		let B: u32 = (raw_instruction >> 23) & 0x1F

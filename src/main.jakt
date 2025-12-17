@@ -12,12 +12,12 @@ enum FileLoadResult {
 	NotALuaFile
 }
 
-function load_lua_string(mut buffer: BufferReader, header: LuaHeader) throws -> String {
+fn load_lua_string(mut buffer: BufferReader, header: LuaHeader) throws -> String {
 	let string_length = buffer.next_integer_of_size(integer_size: header.size_size_t as! usize)
 	mut string_builder: StringBuilder = StringBuilder::create()
 
 	// String length - 1 so that the null byte at the end isn't included
-	for string_index in 0 .. string_length - 1 {
+	for string_index in 0 .. (string_length - 1) {
 		string_builder.append(buffer.next_byte())
 	}
 
@@ -27,7 +27,7 @@ function load_lua_string(mut buffer: BufferReader, header: LuaHeader) throws -> 
 	return string_builder.to_string()
 }
 
-function load_lua_number(mut buffer: BufferReader, header: LuaHeader) -> LuaConstant {
+fn load_lua_number(mut buffer: BufferReader, header: LuaHeader) -> LuaConstant {
 	// TODO: Implement more Lua number types (support for integers, single-precision floats, etc)
 	let byte1 = (buffer.next_byte() as! u64)
 	let byte2 = (buffer.next_byte() as! u64) << 8
@@ -38,7 +38,7 @@ function load_lua_number(mut buffer: BufferReader, header: LuaHeader) -> LuaCons
 	let byte7 = (buffer.next_byte() as! u64) << 48
 	let byte8 = (buffer.next_byte() as! u64) << 56
 
-	mut final_number: f64 = 0
+	mut final_number: f64 = 0.0
 
 	unsafe {
 		cpp {
@@ -58,7 +58,7 @@ function load_lua_number(mut buffer: BufferReader, header: LuaHeader) -> LuaCons
 	return LuaConstant::Number(value: final_number)
 }
 
-function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> LuaChunk {
+fn load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> LuaChunk {
 	let source_name = load_lua_string(buffer, header)
 	let source_line_start = buffer.next_integer_of_size(integer_size: header.size_int)
 	let source_line_end = buffer.next_integer_of_size(integer_size: header.size_int)
@@ -149,7 +149,7 @@ function load_lua_chunk(mut buffer: BufferReader, header: LuaHeader) throws -> L
 }
 
 // TODO: Load Lua script files rather than just bytecode files
-function load_file(filename: String) throws -> FileLoadResult {
+fn load_file(filename: String) throws -> FileLoadResult {
 	mut file = File::open_for_reading(filename)
 
 	// TODO: Stream file?
@@ -177,7 +177,7 @@ function load_file(filename: String) throws -> FileLoadResult {
 	return FileLoadResult::Success(LuaFile(header, main_chunk))
 }
 
-function main(args: [String]) {
+fn main(args: [String]) {
 	guard args.size() > 1 else {
 		eprintln("usage: luja <bytecode file>")
 		return 1
