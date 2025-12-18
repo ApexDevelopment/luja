@@ -38,7 +38,7 @@ fn print_lua_values(values: [LuaValue]) throws {
 }
 
 class LuaEnvironment {
-	public fn get_global(this, global: LuaValue) -> LuaValue {
+	public fn get_global(this, anon global: LuaValue) -> LuaValue {
 		guard global is Constant(constant) else {
 			return LuaValue::Constant(LuaConstant::Nil)
 		}
@@ -53,11 +53,23 @@ class LuaEnvironment {
 
 		return LuaValue::Constant(LuaConstant::Nil)
 	}
+
+	public fn set_global(this, anon global: LuaValue, anon new_value: LuaValue) {
+		guard global is Constant(constant) else {
+			return
+		}
+
+		guard constant is LString(value) else {
+			return
+		}
+
+		println("Set global {} to {}", value, new_value)
+	}
 }
 
 enum LuaInstructionResult {
-	VMError
-	Error
+	VMError(message: String)
+	Error(message: String)
 	Continue
 	Return
 }
@@ -80,8 +92,8 @@ class LuaScope {
 
 	public fn run_instruction(mut this, instruction_index: usize) throws -> LuaInstructionResult {
 		guard instruction_index < .prototype.instruction_list.size() else {
-			eprintln("Instruction {} does not exist", instruction_index)
-			return LuaInstructionResult::VMError()
+			let message = format("Instruction index {} does not exist", instruction_index)
+			return LuaInstructionResult::VMError(message)
 		}
 
 		let instruction = .prototype.instruction_list[instruction_index]
@@ -118,7 +130,55 @@ class LuaScope {
 				yield LuaInstructionResult::Continue()
 			}
 			6 => {
+				// TODO: GETTABLE
+				yield LuaInstructionResult::Continue()
+			}
+			7 => { // SETGLOBAL
+				let global = LuaValue::Constant(.prototype.constant_list[instruction.Bx])
+				.environment.set_global(global, .registers[instruction.A])
+				yield LuaInstructionResult::Continue()
+			}
+			8 => {
 				// TODO: SETUPVAL
+				yield LuaInstructionResult::Continue()
+			}
+			9 => {
+				// TODO: SETTABLE
+				yield LuaInstructionResult::Continue()
+			}
+			21 => { // CONCAT
+				mut string_builder = StringBuilder::create()
+
+				for register_index in instruction.B .. (instruction.C + 1) {
+					let value = .registers[register_index]
+
+					// We don't have nested match in Jakt at the time of writing
+					if (value is Constant(constant)) {
+						if (constant is LString(value)) {
+							string_builder.append(value)
+						}
+						else if (constant is Number(value)) {
+							string_builder.append(format("{}", value))
+						}
+						else if (constant is Boolean(value)) {
+							if value {
+								string_builder.append("true")
+							}
+							else {
+								string_builder.append("false")
+							}
+						}
+						else if (constant is Nil) {
+							string_builder.append("nil")
+						}
+					}
+					else {
+						// Yield isn't allowed here for some reason
+						return LuaInstructionResult::VMError(message: format("Unsupported value type in CONCAT: {}", value))
+					}
+				}
+
+				.registers[instruction.A] = LuaValue::Constant(LuaConstant::LString(value: string_builder.to_string()))
 				yield LuaInstructionResult::Continue()
 			}
 			28 => { // CALL
@@ -136,9 +196,13 @@ class LuaScope {
 				yield LuaInstructionResult::Continue()
 			}
 			else => {
-				eprintln("Unknown opcode {} at instruction {}", instruction.opcode, instruction_index)
-				
-				yield LuaInstructionResult::VMError()
+				mut string_builder = StringBuilder::create()
+				string_builder.append(format("Unknown opcode {} at instruction {}", instruction.opcode, instruction_index))
+				if (.prototype.source_line_list.size() > instruction_index) {
+					let line_number = .prototype.source_line_list[instruction_index]
+					string_builder.append(format(" (source line {})", line_number))
+				}
+				yield LuaInstructionResult::VMError(message: string_builder.to_string())
 			}
 		}
 
@@ -153,8 +217,14 @@ class LuaScope {
 			.pc++
 		}
 
-		if result is VMError {
-			eprintln("Function encountered an error")
+		match result {
+			VMError(message) => {
+				eprintln("VM Error: {}", message)
+			}
+			Error(message) => {
+				eprintln("Error: {}", message)
+			}
+			else => {}
 		}
 	}
 }
