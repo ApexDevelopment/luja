@@ -14,7 +14,7 @@ enum FileLoadResult {
 
 fn load_lua_string(mut buffer: BufferReader, header: LuaHeader) throws -> String {
 	let string_length = buffer.next_integer_of_size(integer_size: header.size_size_t as! usize)
-	mut string_builder: StringBuilder = StringBuilder::create()
+	mut string_builder = StringBuilder::create()
 
 	// String length - 1 so that the null byte at the end isn't included
 	for string_index in 0 .. (string_length - 1) {
